@@ -1,46 +1,156 @@
 import telebot
 from telebot import types
-import requests
 
 TOKEN = '8595383354:AAHk8IT4vmzdy9ofEiZbNcAGzQIjMt-AX5A'
 bot = telebot.TeleBot(TOKEN)
 
-# የ JSON መረጃው የሚገኝበት ድረ-ገጽ ሊንክ (Endpoint)
-DATA_URL = "https://api.jsonbin.io/v3/b/YOUR_BIN_ID_HERE" 
+# ቦቱን የሰራኸው የአንተ የቴሌግራም ID (ሰዎች ቦታ ሲጠቁሙ መረጃው ላንተ እንዲመጣ)
+# ማሳሰቢያ፦ የራስህን ID ካወቅከው በዚህ ቁጥር ቦታ ተካው
+ADMIN_ID = "657483920" 
 
-def get_places_from_json(category):
-    try:
-        # ከ JSON endpoint መረጃውን መሳብ
-        response = requests.get(DATA_URL)
-        data = response.json()
+# የቦታዎች መረጃ (ዳታቤዝ) - አካባቢ (location) እና የፎቶ ሊንክ ተጨምሮበታል
+PLACES_DATA = {
+    "cafes": [
+        {
+            "name": "ቶሞካ ካፌ (Tomoca Coffee)",
+            "area": "ፒያሳ",
+            "address": "📍 አድራሻ፦ ፒያሳ (ዋናው መሥሪያ ቤት)",
+            "desc": "✨ መግለጫ፦ በኢትዮጵያ አንጋፋውና ምርጥ የተቆላ ቡና የሚያቀርብ ታዋቂ ካፌ።",
+            "map_url": "https://maps.google.com/?q=Tomoca+Coffee+Piassa",
+            "photo": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb"
+        },
+        {
+            "name": "ማክያቶ ካፌ (Macchiato Cafe)",
+            "area": "ቦሌ",
+            "address": "📍 አድራሻ፦ ቦሌ (ከኤድናሞል አጠገብ)",
+            "desc": "✨ መግለጫ፦ ለስራ፣ ለንባብ እና ከጓደኞች ጋር ለመጨዋወት ምቹ ድባብ ያለው ካፌ።",
+            "map_url": "https://maps.google.com/?q=Bole+Edna+Mall",
+            "photo": "https://images.unsplash.com/photo-1498804103079-a6351b050096"
+        }
+    ],
+    "restaurants": [
+        {
+            "name": "ዮድ አቢሲኒያ (Yod Abyssinia)",
+            "area": "ቦሌ",
+            "address": "📍 አድራሻ፦ ቦሌ ማተሚያ ቤት አካባቢ",
+            "desc": "✨ መግለጫ፦ ምርጥ የሀገር ባህል ምግቦች ከደማቅ ባህላዊ እስክስታና ሙዚቃ ጋር።",
+            "map_url": "https://maps.google.com/?q=Yod+Abyssinia+Addis+Ababa",
+            "photo": "https://images.unsplash.com/photo-1533777857889-4be7c70b33f7"
+        },
+        {
+            "name": "ሮማ በርገር (Roma Burger)",
+            "area": "ሜክሲኮ",
+            "address": "📍 አድራሻ፦ ሜክሲኮ አካባቢ",
+            "desc": "✨ መግለጫ፦ ፈጣን እና እጅግ ተወዳጅ የሆኑ በርገሮችን የሚያገኙበት ቦታ።",
+            "map_url": "https://maps.google.com/?q=Mexico+Addis+Ababa",
+            "photo": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd"
+        }
+    ],
+    "parks": [
+        {
+            "name": "አንድነት ፓርክ (Unity Park)",
+            "area": "ፒያሳ",
+            "address": "📍 አድራሻ፦ ታላቁ ቤተ-መንግሥት",
+            "desc": "✨ መግለጫ፦ ታሪካዊ ህንፃዎች፣ የእንስሳት ማቆያ እና ውብ መናፈሻ የያዘ ታላቅ ፓርክ።",
+            "map_url": "https://maps.google.com/?q=Unity+Park+Addis+Ababa",
+            "photo": "https://images.unsplash.com/photo-1502082553048-f009c37129b9"
+        }
+    ]
+}
+
+# የተጠቃሚዎችን ሁኔታ ለመከታተል (ለቦታ ጥቆማ)
+user_states = {}
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_states[message.chat.id] = None
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    btn1 = types.KeyboardButton("☕ ካፌዎች (Cafes)")
+    btn2 = types.KeyboardButton("🍔 ሬስቶራንቶች (Restaurants)")
+    btn3 = types.KeyboardButton("🌳 ፓርኮችና መዝናኛዎች")
+    btn4 = types.KeyboardButton("✍️ ቦታ ጠቁም (Suggest)")
+    markup.add(btn1, btn2, btn3, btn4)
+    
+    bot.send_message(
+        message.chat.id, 
+        "እንኳን ወደ Addis Spot Finder በደህና መጡ! 👋\n\n"
+        "🔍 **ለመፈለግ**፦ የአካባቢውን ስም ቀጥታ ይጻፉልኝ (ምሳሌ፦ ቦሌ ወይም ፒያሳ)\n\n"
+        "እባክዎ ከታች ካሉት አማራጮች አንዱን ይምረጡ፦", 
+        reply_markup=markup
+    )
+
+# መረጃዎችን በፎቶ እና በካርታ ቁልፍ አደራጅቶ የሚልክ ተግባር
+def send_places_by_category(chat_id, category_key):
+    places = PLACES_DATA.get(category_key, [])
+    for place in places:
+        caption = f"🌟 **{place['name']}**\n\n{place['address']}\n{place['desc']}"
         
-        # የ JSON መዋቅርህን መሠረት በማድረግ መረጃውን መለየት
-        # ምሳሌ፦ {"cafes": [{"name": "Tomoca", "location": "Piassa"}]}
-        places = data.get("record", {}).get(category, [])
+        # የጉግል ማፕ ሊንኩን በቁልፍ (Inline Button) መስራት
+        inline_markup = types.InlineKeyboardMarkup()
+        map_btn = types.InlineKeyboardButton("📍 በካርታው ላይ እይ (Google Maps)", url=place['map_url'])
+        inline_markup.add(map_btn)
         
-        if not places:
-            return "❌ በአሁኑ ሰዓት ምንም የተመዘገበ ቦታ አልተገኘም።"
-            
-        text = f"📍 **የ{category} ዝርዝር፦**\n\n"
-        for index, place in enumerate(places, 1):
-            text += f"{index}. **{place['name']}**\n"
-            text += f"   📍 አድራሻ፦ {place['location']}\n"
-            text += f"   ✨ መግለጫ፦ {place['description']}\n\n"
-        return text
-        
-    except Exception as e:
-        print(f"Error fetching data: {e}")
-        return "❌ መረጃውን ከሰርቨር ላይ ማምጣት አልተቻለም። እባክዎ ቆይተው ይሞክሩ።"
+        # ፎቶውን ከነማፕ ቁልፉ መላክ
+        try:
+            bot.send_photo(chat_id, place['photo'], caption=caption, reply_markup=inline_markup, parse_mode="Markdown")
+        except:
+            # ፎቶው መላክ ካልቻለ በፅሁፍ ብቻ ይልካል
+            bot.send_message(chat_id, caption, reply_markup=inline_markup, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: True)
-def handle_buttons(message):
-    if message.text == "☕ ካፌዎች (Cafes)":
-        # 'cafes' የሚለውን ቁልፍ በመላክ ከJSON እንዲፈልግ ማድረግ
-        response_text = get_places_from_json("cafes")
-        bot.reply_to(message, response_text, parse_mode="Markdown")
-        
-    elif message.text == "🍔 ሬስቶራንቶች (Restaurants)":
-        response_text = get_places_from_json("restaurants")
-        bot.reply_to(message, response_text, parse_mode="Markdown")
+def handle_all_messages(message):
+    chat_id = message.chat.id
+    text = message.text
 
+    # 1. የቦታ ጥቆማ ሂደት ላይ ከሆነ
+    if user_states.get(chat_id) == "waiting_for_suggestion":
+        user_states[chat_id] = None # ሁኔታውን ማፅዳት
+        bot.reply_to(message, "🙏 ስለ ጥቆማዎ እናመሰግናለን! መረጃውን ፈትሸን ወደ ሲስተሙ የምናስገባው ይሆናል።")
+        
+        # ጥቆማውን ለቦቱ ባለቤት (አድሚን) መላክ
+        admin_text = f"📩 **አዲስ የቦታ ጥቆማ ደርሷል!**\n\n👤 ከተጠቃሚ፦ @{message.from_user.username or 'የለውም'}\n📝 ዝርዝር፦ {text}"
+        try:
+            bot.send_message(ADMIN_ID, admin_text)
+        except:
+            pass
+        return
+
+    # 2. የዋና ቁልፎች ስራ
+    if text == "☕ ካፌዎች (Cafes)":
+        send_places_by_category(chat_id, "cafes")
+        
+    elif text == "🍔 ሬስቶራንቶች (Restaurants)":
+        send_places_by_category(chat_id, "restaurants")
+        
+    elif text == "🌳 ፓርኮችና መዝናኛዎች":
+        send_places_by_category(chat_id, "parks")
+        
+    elif text == "✍️ ቦታ ጠቁም (Suggest)":
+        user_states[chat_id] = "waiting_for_suggestion"
+        bot.reply_to(message, "📝 እባክዎ የቦታውን ስም፣ አድራሻ እና መግለጫ በአንድ መልዕክት ላይ ጽፈው ይላኩናል።")
+        
+    # 3. የፍለጋ ሲስተም (Search Feature)
+    else:
+        found = False
+        search_query = text.lower()
+        
+        for category, places in PLACES_DATA.items():
+            for place in places:
+                # በቦታው ስም ወይም በአካባቢው ስም መፈለግ
+                if search_query in place['name'].lower() or search_query in place['area'].lower():
+                    caption = f"🔍 **የፍለጋ ውጤት፦**\n\n🌟 **{place['name']}**\n\n{place['address']}\n{place['desc']}"
+                    inline_markup = types.InlineKeyboardMarkup()
+                    map_btn = types.InlineKeyboardButton("📍 በካርታው ላይ እይ (Google Maps)", url=place['map_url'])
+                    inline_markup.add(map_btn)
+                    
+                    try:
+                        bot.send_photo(chat_id, place['photo'], caption=caption, reply_markup=inline_markup, parse_mode="Markdown")
+                    except:
+                        bot.send_message(chat_id, caption, reply_markup=inline_markup, parse_mode="Markdown")
+                    found = True
+                    
+        if not found:
+            bot.reply_to(message, f"🔍 ይቅርታ፣ ከ '{text}' ጋር የሚገናኝ ቦታ በአሁኑ ሰዓት ማግኘት አልቻልኩም። እባክዎ በሌላ ቃል ይሞክሩ (ለምሳሌ፦ ቦሌ፣ ፒያሳ)።")
+
+print("Advanced ቦት ስራ ጀምሯል...")
 bot.infinity_polling()
