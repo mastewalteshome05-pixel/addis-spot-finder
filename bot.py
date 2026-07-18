@@ -22,8 +22,8 @@ threading.Thread(target=run_flask).start()
 TOKEN = '8595383354:AAHk8IT4vmzdy9ofEiZbNcAGzQIjMt-AX5A'
 bot = telebot.TeleBot(TOKEN)
 
-# የቦታ ጥቆማዎች እና የተጠቃሚ መረጃዎች በቀጥታ ላንተ እንዲመጡ ያንተ የቴሌግራም ID
-ADMIN_ID = "657483920" 
+# የቦታ ጥቆማዎች እና የተጠቃሚ መረጃዎች በቀጥታ ላንተ እንዲመጡ ያንተ እውነተኛ የቴሌግራም ID
+ADMIN_ID = "7585327665" 
 
 # የብዙ ቋንቋዎች መዝገበ-ቃላት (12 Languages)
 STRINGS = {
@@ -41,7 +41,7 @@ STRINGS = {
     "zh": {"welcome": "欢迎来到 Addis Spot Finder！ 👋\n🔍 输入地点或国家名称进行搜索（例如：Bole、美国）。", "btn_cafes": "☕ 咖啡馆", "btn_restaurants": "🍔 餐厅", "btn_parks": "🌳 公园", "btn_suggest": "✍️ 推荐地点", "suggest_prompt": "📝 请写下地点的名称、地址和来自Google的图片链接。", "suggest_thanks": "🙏 感谢您的建议！我们会尽快审核并添加。", "not_found": "🔍 抱歉，未找到该地点。", "map_btn": "📍 在地图上查看", "search_res": "🔍 搜索结果："}
 }
 
-# ግሎባል የቦታዎች መረጃ ዳታቤዝ (የሀገር ስም እና Keywords ተጨምሮበታል)
+# ግሎባል የቦታዎች መረጃ ዳታቤዝ
 PLACES_DATA = {
     "cafes": [
         {
@@ -74,7 +74,7 @@ PLACES_DATA = {
             "name": "ማክዶናልድ ዋሽንግተን (McDonald's Washington)", 
             "area": "አሜሪካ ዋሽንግተን america usa washington dc burger hotel 🍔", 
             "address": "📍 Address: Downtown, Washington D.C. (USA)", 
-            "desc": "✨ ፈጣንና ተወዳጅ የሆኑ በርгеሮችን የሚያገኙበት የአሜሪካ መመгеቢያ።", 
+            "desc": "✨ ፈጣንና ተወዳጅ የሆኑ በርገሮችን የሚያገኙበት የአሜሪካ መመгеቢያ።", 
             "map_url": "https://maps.google.com/?q=McDonalds+Washington+DC", 
             "photo": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd"
         }
@@ -114,10 +114,12 @@ def choose_language(message):
         f"🆔 ID: `{chat_id}`\n"
         f"🔗 Username: @{message.from_user.username or 'የለውም'}"
     )
-    try: bot.send_message(ADMIN_ID, user_info, parse_mode="Markdown")
-    except: pass
+    try: 
+        bot.send_message(ADMIN_ID, user_info, parse_mode="Markdown")
+    except Exception as e: 
+        print(f"የአድሚን መልዕክት ስህተት (User Info): {e}")
 
-    # የ 12 ቋንቋዎች Inline ማሳያ ቁልፎች (ባለ 2 ረድፍ አደራጃጀት)
+    # የ 12 ቋንቋዎች Inline ማሳያ ቁልፎች
     markup = types.InlineKeyboardMarkup(row_width=2)
     markup.add(
         types.InlineKeyboardButton("አማርኛ 🇪🇹", callback_data="lang_am"),
@@ -166,10 +168,10 @@ def send_places_by_category(chat_id, category_key, lang):
 def handle_all_messages(message):
     chat_id = message.chat.id
     text = message.text
-    lang = user_languages.get(chat_id, "am") # ካልመረጠ አማርኛ default ይሆናል
+    lang = user_languages.get(chat_id, "am")
     ln = STRINGS[lang]
 
-    # የቦታ ጥቆማዎችን ከአድራሻና ከGoogle ፎቶ መመሪያ ጋር ተቀብሎ ለአድሚን መላክ
+    # የቦታ ጥቆማዎችን ለአድሚን መላክ
     if user_states.get(chat_id) == "waiting_for_suggestion":
         user_states[chat_id] = None
         bot.reply_to(message, ln["suggest_thanks"])
@@ -179,11 +181,12 @@ def handle_all_messages(message):
             f"🆔 ID: `{chat_id}`\n"
             f"📝 ዝርዝር መረጃ እና ሊንክ፦\n{text}"
         )
-        try: bot.send_message(ADMIN_ID, admin_text)
-        except: pass
+        try: 
+            bot.send_message(ADMIN_ID, admin_text)
+        except Exception as e: 
+            print(f"የአድሚን መልዕክት ስህተት (Suggestion): {e}")
         return
 
-    # የቁልፎች ማረጋገጫ (ከሁሉም ቋንቋዎች ቁልፍ ጋር ይነፃፀራል)
     is_cafe = any(text == STRINGS[k]["btn_cafes"] for k in STRINGS)
     is_rest = any(text == STRINGS[k]["btn_restaurants"] for k in STRINGS)
     is_park = any(text == STRINGS[k]["btn_parks"] for k in STRINGS)
@@ -196,13 +199,12 @@ def handle_all_messages(message):
         user_states[chat_id] = "waiting_for_suggestion"
         bot.reply_to(message, ln["suggest_prompt"])
     
-    # 🔍 እጅግ የላቀ ግሎባል የጽሁፍ ፍለጋ ሲስተም (Global & Smart Text Search)
+    # 🔍 ግሎባል የጽሁፍ ፍለጋ ሲስተም
     else:
         found = False
         search_query = text.lower()
         for category, places in PLACES_DATA.items():
             for place in places:
-                # በስም ወይም በሀገር/አካባቢ Keywords ውስጥ ካለ ይፈልጋል
                 if search_query in place['name'].lower() or search_query in place['area'].lower():
                     caption = f"{ln['search_res']}\n\n🌟 **{place['name']}**\n\n{place['address']}\n{place['desc']}"
                     inline_markup = types.InlineKeyboardMarkup()
