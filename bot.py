@@ -1,14 +1,31 @@
+import os
+import threading
 import telebot
 from telebot import types
+from flask import Flask
 
+# Render የዌብሳይት ፖርት (Port) እንዲያገኝ የሚያደርግ ቀላል የፍላስክ ሰርቨር ማዋቀር
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running perfectly!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+# ፍላስክን በስተጀርባ (Background Thread) ማስነሳት
+threading.Thread(target=run_flask).start()
+
+# የቴሌግራም ቦት መለያ (Token)
 TOKEN = '8595383354:AAHk8IT4vmzdy9ofEiZbNcAGzQIjMt-AX5A'
 bot = telebot.TeleBot(TOKEN)
 
-# ቦቱን የሰራኸው የአንተ የቴሌግራም ID (ሰዎች ቦታ ሲጠቁሙ መረጃው ላንተ እንዲመጣ)
-# ማሳሰቢያ፦ የራስህን ID ካወቅከው በዚህ ቁጥር ቦታ ተካው
+# የቦታ ጥቆማዎች በቀጥታ ላንተ እንዲመጡ ያንተ የቴሌግራም ID
 ADMIN_ID = "657483920" 
 
-# የቦታዎች መረጃ (ዳታቤዝ) - አካባቢ (location) እና የፎቶ ሊንክ ተጨምሮበታል
+# የቦታዎች መረጃ (ዳታቤዝ)
 PLACES_DATA = {
     "cafes": [
         {
@@ -58,7 +75,6 @@ PLACES_DATA = {
     ]
 }
 
-# የተጠቃሚዎችን ሁኔታ ለመከታተል (ለቦታ ጥቆማ)
 user_states = {}
 
 @bot.message_handler(commands=['start'])
@@ -79,22 +95,18 @@ def send_welcome(message):
         reply_markup=markup
     )
 
-# መረጃዎችን በፎቶ እና በካርታ ቁልፍ አደራጅቶ የሚልክ ተግባር
 def send_places_by_category(chat_id, category_key):
     places = PLACES_DATA.get(category_key, [])
     for place in places:
         caption = f"🌟 **{place['name']}**\n\n{place['address']}\n{place['desc']}"
         
-        # የጉግል ማፕ ሊንኩን በቁልፍ (Inline Button) መስራት
         inline_markup = types.InlineKeyboardMarkup()
         map_btn = types.InlineKeyboardButton("📍 በካርታው ላይ እይ (Google Maps)", url=place['map_url'])
         inline_markup.add(map_btn)
         
-        # ፎቶውን ከነማፕ ቁልፉ መላክ
         try:
             bot.send_photo(chat_id, place['photo'], caption=caption, reply_markup=inline_markup, parse_mode="Markdown")
         except:
-            # ፎቶው መላክ ካልቻለ በፅሁፍ ብቻ ይልካል
             bot.send_message(chat_id, caption, reply_markup=inline_markup, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: True)
@@ -102,12 +114,10 @@ def handle_all_messages(message):
     chat_id = message.chat.id
     text = message.text
 
-    # 1. የቦታ ጥቆማ ሂደት ላይ ከሆነ
     if user_states.get(chat_id) == "waiting_for_suggestion":
-        user_states[chat_id] = None # ሁኔታውን ማፅዳት
+        user_states[chat_id] = None
         bot.reply_to(message, "🙏 ስለ ጥቆማዎ እናመሰግናለን! መረጃውን ፈትሸን ወደ ሲስተሙ የምናስገባው ይሆናል።")
         
-        # ጥቆማውን ለቦቱ ባለቤት (አድሚን) መላክ
         admin_text = f"📩 **አዲስ የቦታ ጥቆማ ደርሷል!**\n\n👤 ከተጠቃሚ፦ @{message.from_user.username or 'የለውም'}\n📝 ዝርዝር፦ {text}"
         try:
             bot.send_message(ADMIN_ID, admin_text)
@@ -115,28 +125,21 @@ def handle_all_messages(message):
             pass
         return
 
-    # 2. የዋና ቁልፎች ስራ
     if text == "☕ ካፌዎች (Cafes)":
         send_places_by_category(chat_id, "cafes")
-        
     elif text == "🍔 ሬስቶራንቶች (Restaurants)":
         send_places_by_category(chat_id, "restaurants")
-        
     elif text == "🌳 ፓርኮችና መዝናኛዎች":
         send_places_by_category(chat_id, "parks")
-        
     elif text == "✍️ ቦታ ጠቁም (Suggest)":
         user_states[chat_id] = "waiting_for_suggestion"
         bot.reply_to(message, "📝 እባክዎ የቦታውን ስም፣ አድራሻ እና መግለጫ በአንድ መልዕክት ላይ ጽፈው ይላኩናል።")
-        
-    # 3. የፍለጋ ሲስተም (Search Feature)
     else:
         found = False
         search_query = text.lower()
         
         for category, places in PLACES_DATA.items():
             for place in places:
-                # በቦታው ስም ወይም በአካባቢው ስም መፈለግ
                 if search_query in place['name'].lower() or search_query in place['area'].lower():
                     caption = f"🔍 **የፍለጋ ውጤት፦**\n\n🌟 **{place['name']}**\n\n{place['address']}\n{place['desc']}"
                     inline_markup = types.InlineKeyboardMarkup()
@@ -152,5 +155,5 @@ def handle_all_messages(message):
         if not found:
             bot.reply_to(message, f"🔍 ይቅርታ፣ ከ '{text}' ጋር የሚገናኝ ቦታ በአሁኑ ሰዓት ማግኘት አልቻልኩም። እባክዎ በሌላ ቃል ይሞክሩ (ለምሳሌ፦ ቦሌ፣ ፒያሳ)።")
 
-print("Advanced ቦት ስራ ጀምሯል...")
+print("Advanced ቦት ከሰርቨር ድጋፍ ጋር ስራ ጀምሯል...")
 bot.infinity_polling()
